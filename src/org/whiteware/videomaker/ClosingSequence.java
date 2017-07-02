@@ -14,8 +14,7 @@ public class ClosingSequence extends FrameMaker {
 		super(fps);
 	}
 
-	@Override
-	public BufferedImage getFrame(long elapsedTime) {
+	public BufferedImage getImage() {
 		// very simply just rendering the same screen for now until time permits the fade
 		
 		BufferedImage image = super.getPriorImage();
@@ -23,7 +22,9 @@ public class ClosingSequence extends FrameMaker {
 		
 		Graphics2D g2D = (Graphics2D) image.getGraphics();
 		g2D.setColor(Color.GRAY);
-		g2D.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+		// g2D.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+		g2D.setRenderingHint(RenderingHints.KEY_ALPHA_INTERPOLATION, RenderingHints.VALUE_ALPHA_INTERPOLATION_QUALITY);
+		g2D.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
 		
 		TextLayout textual = new TextLayout("Closing sequence goes here", font, g2D.getFontRenderContext());
 		Rectangle2D textBounds = textual.getBounds();
@@ -44,6 +45,16 @@ public class ClosingSequence extends FrameMaker {
 	public int getFrameCount() {
 		// 3 second fade
 		return 3 * super.getFps();
+	}
+
+	@Override
+	public BufferedImage getFrame(long elapsedTime) {
+		return getImage();
+	}
+	
+	@Override
+	public BufferedImage getFrame(int frameNumber) {
+		return getImage();
 	}
 
 }

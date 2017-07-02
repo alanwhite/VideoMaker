@@ -12,6 +12,7 @@ public abstract class FrameMaker {
 	}
 
 	public abstract BufferedImage getFrame(long elapsedTime);
+	public abstract BufferedImage getFrame(int frameNumber);
 	public abstract int getFrameCount();
 
 	/**

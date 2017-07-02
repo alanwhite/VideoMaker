@@ -1,5 +1,7 @@
 package org.whiteware.videomaker;
 
+import java.awt.Color;
+import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import javax.swing.SwingWorker;
@@ -7,6 +9,7 @@ import javax.swing.SwingWorker;
 import org.bytedeco.javacpp.avcodec;
 import org.bytedeco.javacpp.avutil;
 import org.bytedeco.javacv.FFmpegFrameRecorder;
+import org.bytedeco.javacv.Frame;
 import org.bytedeco.javacv.Java2DFrameConverter;
 import org.bytedeco.javacv.FrameRecorder.Exception;
 
@@ -32,14 +35,23 @@ public class VideoWriter extends SwingWorker<String, String> {
 		
 		long totalSleep=5000;
 		long iterationSleep=1000;
+
+		final TitleSequence titleSequence = new TitleSequence(fps, title);
+		final VideoContent videoContent = new VideoContent(fps);
+		final ClosingSequence closingSequence = new ClosingSequence(fps);
+		final int titleFrames = titleSequence.getFrameCount();
+		final int videoFrames = videoContent.getFrameCount();
+		final int closingFrames = closingSequence.getFrameCount();
+		final int totalFrames = titleFrames + videoFrames + closingFrames;
+		final long totalMovieMillis = 1000 * (totalFrames/fps);
+		final long frameTimeMillis = 1000/fps;
 		
 		FrameMaker currentFM = null;
-		TitleSequence titleSequence = new TitleSequence(fps);
-		VideoContent videoContent = new VideoContent(fps);
-		ClosingSequence closingSequence = new ClosingSequence(fps);
 		BufferedImage currentFrame = new BufferedImage(videoWidth, videoHeight, BufferedImage.TYPE_4BYTE_ABGR);
-		int totalFrames = titleSequence.getFrameCount() + videoContent.getFrameCount() + closingSequence.getFrameCount();
-		long totalMovieMillis = 1000 * (totalFrames/fps);
+		
+		int framesProcessed = 0;
+		long startTime = 0;
+		long nextFrameTime = 0;
 		
 		FFmpegFrameRecorder recorder = new FFmpegFrameRecorder(videoFile, videoWidth, videoHeight, 2);
 		Java2DFrameConverter imageConverter = new Java2DFrameConverter();
@@ -56,34 +68,43 @@ public class VideoWriter extends SwingWorker<String, String> {
 			return "ERROR: Unable to start video frame writer "+e.getMessage();
 		}
 		
+		currentFM = titleSequence;
+		startTime = System.currentTimeMillis();
+		nextFrameTime = startTime + frameTimeMillis;
+		
+		while ( framesProcessed++ < totalFrames ) {
+			// System.out.println("loop "+framesProcessed);
+			setProgress((int) ( (100*framesProcessed)/totalFrames));
+			
+			currentFM.setPriorImage(currentFrame);
+			currentFrame = currentFM.getFrame(framesProcessed);
+			recorder.record(imageConverter.convert(currentFrame), avutil.AV_PIX_FMT_ABGR);
+			
+			if ( framesProcessed >= (videoFrames+titleFrames) ) {
+				// System.out.println("Switching to closing sequence");
+				currentFM = closingSequence;
+			} else if ( framesProcessed >= titleFrames ) {
+				// System.out.println("Switching to video content");
+				currentFM = videoContent;
+			}
+			
+		}
+		
 		/*
-		 * Thinking is we loop on however many frames per second setting the current frameMaker as
-		 * time moves on
+		 * Now is the strategy that we ask the frame makers to produce the next frame due, or the frame that's due at that real time moment?
+		 * If we can find some way to pull the audio on a frame by frame basis then a high quality video can be produced, ie less risk of 
+		 * varying the frame rate or skipping frames.
 		 * 
-		 * currentFM.setPriorFrame(image)
-		 * currentFM.getFrame(time) etc.....
-		 * convert frame to needed format
-		 * send to recorder
+		 * I think we can set the time that the recorder should associate with a video frame, ensuring the quality.
+		 * 
+		 * If we can't do that for the audio stream, we need to adopt a strategy where we are led by the audio timestamp.
+		 * 
+		 * Let's investigate how audio is captured by JavaCV.
+		 * 
+		 * 
 		 */
 		
-		// set up all the needed JavaCV stuff on this thread
-		
 		// ensure we ignore audio if audio file is null
-		
-		// calculate how many frames we will be writing
-		// title sequence
-		// frames for the duration of the audio
-		// credits sequence
-		
-		for ( long i = 0; i < totalSleep && !isCancelled(); i += iterationSleep) {
-			setProgress((int) ( (100*i)/totalSleep));
-			try {
-				Thread.sleep(iterationSleep);
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}
 		
 		try {
 			recorder.stop();
@@ -91,7 +112,6 @@ public class VideoWriter extends SwingWorker<String, String> {
 			System.out.println("error stopping mp4 recorder");
 			e.printStackTrace();
 		}
-		
 		
 		if ( !isCancelled() )
 			setProgress(100);
