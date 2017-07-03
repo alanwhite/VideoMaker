@@ -1,17 +1,24 @@
 package org.whiteware.videomaker;
 
-import java.awt.Color;
-import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.ShortBuffer;
+
+import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.DataLine;
+import javax.sound.sampled.SourceDataLine;
 import javax.swing.SwingWorker;
 
 import org.bytedeco.javacpp.avcodec;
 import org.bytedeco.javacpp.avutil;
 import org.bytedeco.javacv.FFmpegFrameRecorder;
-import org.bytedeco.javacv.Frame;
 import org.bytedeco.javacv.Java2DFrameConverter;
-import org.bytedeco.javacv.FrameRecorder.Exception;
+
 
 /*
  * Takes the given audio file and merges with generated video images into an mp4 file
@@ -32,27 +39,58 @@ public class VideoWriter extends SwingWorker<String, String> {
 	
 	@Override
 	protected String doInBackground() throws Exception {
-		
-		long totalSleep=5000;
-		long iterationSleep=1000;
 
+		/*
+		 * We separate out the video frame content producers to seperate classes for clarity
+		 */
 		final TitleSequence titleSequence = new TitleSequence(fps, title);
 		final VideoContent videoContent = new VideoContent(fps);
 		final ClosingSequence closingSequence = new ClosingSequence(fps);
+		
+		/*
+		 * We ask each of those how many frames they will write and calculate the total
+		 */
 		final int titleFrames = titleSequence.getFrameCount();
 		final int videoFrames = videoContent.getFrameCount();
 		final int closingFrames = closingSequence.getFrameCount();
 		final int totalFrames = titleFrames + videoFrames + closingFrames;
 		final long totalMovieMillis = 1000 * (totalFrames/fps);
-		final long frameTimeMillis = 1000/fps;
+		// final long frameTimeMillis = 1000/fps;
 		
-		FrameMaker currentFM = null;
-		BufferedImage currentFrame = new BufferedImage(videoWidth, videoHeight, BufferedImage.TYPE_4BYTE_ABGR);
-		
+		/*
+		 * Track how many frames we've produced
+		 */
 		int framesProcessed = 0;
-		long startTime = 0;
-		long nextFrameTime = 0;
 		
+		/*
+		 * We will switch which of the video frame content producers we need as we go
+		 */
+		FrameMaker currentFM = null;
+		
+		/*
+		 * Provide an initial buffer for the video frame, producers could return different ones
+		 */
+		BufferedImage currentFrame = new BufferedImage(videoWidth, videoHeight, BufferedImage.TYPE_4BYTE_ABGR);
+
+		/*
+		 * We read the audio file in as needed
+		 */
+		SourceDataLine line = null;
+		AudioInputStream audioInputStream = null;
+		
+		/*
+		 * Calculate audio buffer size aligned to video frame rate
+		 */
+		final int sampleSizeBytes = 4; // hardcoded as the 2 channels and 16 bit audio when we recorded it
+		final int samplesPerSec = 44100; // also as per when we recorded it
+		final int sampleBytesPerFrame = (samplesPerSec * sampleSizeBytes) / fps;
+		byte[] audioSamples = new byte[sampleBytesPerFrame];
+		short[] silentSamples = new short[sampleBytesPerFrame/2];
+		ShortBuffer silentBuffer = ShortBuffer.wrap(silentSamples);
+		
+		/*
+		 * Set up the mp4 capture capability
+		 */
 		FFmpegFrameRecorder recorder = new FFmpegFrameRecorder(videoFile, videoWidth, videoHeight, 2);
 		Java2DFrameConverter imageConverter = new Java2DFrameConverter();
 			
@@ -65,21 +103,92 @@ public class VideoWriter extends SwingWorker<String, String> {
 		} catch (Exception e) {
 			System.out.println("Error starting recorder");
 			e.printStackTrace();
+			recorder.close();
 			return "ERROR: Unable to start video frame writer "+e.getMessage();
 		}
 		
 		currentFM = titleSequence;
-		startTime = System.currentTimeMillis();
-		nextFrameTime = startTime + frameTimeMillis;
+		
+		/*
+		 * Set up access to the audio track to merge to the content phase only
+		 */
+		if ( audioFile != null ) {
+			/*
+			 * Now the strategy is that we ask the frame makers to produce the next frame due
+			 * If we can find some way to pull the audio on a frame by frame basis then a high quality video can be produced, 
+			 * ie less risk of varying the frame rate or skipping frames.
+			 * 
+			 * If we can't do that for the audio stream, we need to adopt a strategy where we are led by the audio timestamp.
+			 * 
+			 * Let's investigate how audio is captured by JavaCV.
+			 * recordSamples ... let's see if we can feed it the right number of samples with each video frame
+			 * we would read the requisite number from the audio file.
+			 * 
+			 */
+				
+			try {
+				audioInputStream = AudioSystem.getAudioInputStream(audioFile);
+				AudioFormat	audioFormat = audioInputStream.getFormat();
+				DataLine.Info info = new DataLine.Info(SourceDataLine.class,audioFormat);
+				line = (SourceDataLine) AudioSystem.getLine(info);
+				line.open(audioFormat);
+				line.start();
+			} catch (Exception e) {
+				e.printStackTrace();
+				return "ERROR: Unable to start audio feed"+e.getMessage();
+			} 
+			
+			// set up a frame of silence that gets added to the mp4 during titles etc
+			// should be zero .....
+		}
 		
 		while ( framesProcessed++ < totalFrames ) {
-			// System.out.println("loop "+framesProcessed);
+			/*
+			 * Send the progress to the EDT
+			 */
 			setProgress((int) ( (100*framesProcessed)/totalFrames));
 			
+			/*
+			 * Obtain and write the video frame to the mp4
+			 */
 			currentFM.setPriorImage(currentFrame);
 			currentFrame = currentFM.getFrame(framesProcessed);
 			recorder.record(imageConverter.convert(currentFrame), avutil.AV_PIX_FMT_ABGR);
 			
+			/*
+			 * Add audio if needed
+			 */
+			if ( audioFile != null ) {
+				
+				if ( currentFM == videoContent ) {
+					int bytesRead = 0;
+					try	{
+						bytesRead = audioInputStream.read(audioSamples, 0, sampleBytesPerFrame);
+					} catch (IOException e) {
+						e.printStackTrace();
+						return "ERROR: Unable to read audio feed"+e.getMessage();
+					} 
+
+					if ( bytesRead != sampleBytesPerFrame) {
+						System.out.println("Frames Processed "+framesProcessed+" out of "+totalFrames+", switch out due at "+(videoFrames+titleFrames));
+						System.out.println("ERROR: Incorrect data length read from audio feed "+bytesRead);
+					}
+
+					int samplesRead = bytesRead / 2;
+					short[] samples = new short[samplesRead];
+					ByteBuffer.wrap(audioSamples).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(samples);
+					ShortBuffer sBuff = ShortBuffer.wrap(samples, 0, samplesRead);
+
+					recorder.recordSamples(44100, 2, sBuff);
+				} else {
+					// add silence
+					recorder.recordSamples(44100, 2, silentBuffer);
+				}
+			}
+			
+			/*
+			 * Work out if we need to switch video frame producer
+			 */
 			if ( framesProcessed >= (videoFrames+titleFrames) ) {
 				// System.out.println("Switching to closing sequence");
 				currentFM = closingSequence;
@@ -91,25 +200,17 @@ public class VideoWriter extends SwingWorker<String, String> {
 		}
 		
 		/*
-		 * Now is the strategy that we ask the frame makers to produce the next frame due, or the frame that's due at that real time moment?
-		 * If we can find some way to pull the audio on a frame by frame basis then a high quality video can be produced, ie less risk of 
-		 * varying the frame rate or skipping frames.
-		 * 
-		 * I think we can set the time that the recorder should associate with a video frame, ensuring the quality.
-		 * 
-		 * If we can't do that for the audio stream, we need to adopt a strategy where we are led by the audio timestamp.
-		 * 
-		 * Let's investigate how audio is captured by JavaCV.
-		 * 
-		 * 
+		 * Tidy up
 		 */
-		
-		// ensure we ignore audio if audio file is null
-		
 		try {
 			recorder.stop();
+			recorder.close();
+			if ( audioFile != null ) {
+				line.stop();
+				line.close();
+			}
 		} catch (Exception e) {
-			System.out.println("error stopping mp4 recorder");
+			System.out.println("error stopping all lines");
 			e.printStackTrace();
 		}
 		

@@ -9,6 +9,9 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.io.File;
 import java.io.FilenameFilter;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.concurrent.ExecutionException;
 
 import javax.swing.JFrame;
@@ -28,6 +31,8 @@ public class VideoMaker extends JFrame implements PropertyChangeListener {
 	private AudioCapture audioCapture = new AudioCapture(FPS, BPM);
 	private VideoWriter videoWriter = null;
 	private File audioFile = null;
+	
+	private DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
 
 	public VideoMaker() {
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -118,10 +123,10 @@ public class VideoMaker extends JFrame implements PropertyChangeListener {
 				break;
 			case "audioFile":
 				audioFile = (File) evt.getNewValue();
-				System.out.println("Recording to file: "+audioFile);
+				System.out.println(getTime()+" Recording to file: "+audioFile);
 				break;
 			default:
-				System.out.println("Warning: Unhandled property "+propertyName+" ignored");
+				System.out.println(getTime()+" Warning: Unhandled property "+propertyName+" ignored");
 
 			}
 			return;
@@ -135,13 +140,13 @@ public class VideoMaker extends JFrame implements PropertyChangeListener {
 			case "state":
 				SwingWorker.StateValue state = (SwingWorker.StateValue) evt.getNewValue();
 				if ( state == SwingWorker.StateValue.STARTED ) {
-					System.out.println("Rendering started ....");
+					System.out.println(getTime()+" Rendering started");
 					waitPanel.setVisible(true);
 				
 				} else
 					if ( state == SwingWorker.StateValue.DONE ) {
 						// clear the screen blocker and declare done
-						System.out.println("Rendering Finished");
+						System.out.println(getTime()+" Rendering Finished");
 						waitPanel.setVisible(false);
 						
 						// best check it was successful in generating the video
@@ -153,15 +158,20 @@ public class VideoMaker extends JFrame implements PropertyChangeListener {
 						} catch (ExecutionException e) {
 							e.printStackTrace();
 						}
-						System.out.println(renderOutcome);
+						System.out.println(getTime()+" "+renderOutcome);
 					}
 				break;
 			default:
-				System.out.println("Warning: Unhandled property "+propertyName+" ignored");
+				System.out.println(getTime()+" Warning: Unhandled property "+propertyName+" ignored");
 
 			}
 		}
 
+	}
+	
+	private String getTime() {
+		Date date = new Date();
+		return dateFormat.format(date); 
 	}
 
 }

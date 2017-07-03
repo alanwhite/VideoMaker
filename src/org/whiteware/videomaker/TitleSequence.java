@@ -57,7 +57,7 @@ public class TitleSequence extends FrameMaker {
 
 		xSlide += textBounds.getWidth()+5.0f;
 
-		if ( frame >= 30 ) {
+		if ( frame >= this.getFps() ) {
 			frame = 0;
 			second++;
 			xSlide = 0.0f;

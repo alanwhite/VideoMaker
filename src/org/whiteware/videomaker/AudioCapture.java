@@ -61,6 +61,7 @@ public class AudioCapture extends JPanel implements ActionListener {
 	private AudioInputStream audioInputStream;
 	private File recordingFile;
 	private Thread recordingThread;
+	private boolean cancelNextInvocation = false;
 	
 	/**
 	 * Constructor
@@ -155,11 +156,11 @@ public class AudioCapture extends JPanel implements ActionListener {
 			}
 		};
 		
+		cancelNextInvocation = false;
 		currentBeat = 0;
 		startTime = System.currentTimeMillis();
 		nextBeatMillis = startTime + millisPerBeat;
 		targetDataLine.start();
-		recordingThread.start();
 		timer.start();
 		setCapturingAudio(true);
 	}
@@ -167,6 +168,7 @@ public class AudioCapture extends JPanel implements ActionListener {
 	protected void cancel() {
 		timer.stop();
 		targetDataLine.stop();
+		targetDataLine.drain();
 		targetDataLine.close(); // causes recordingThread to encounter EOF and terminate
 		setCapturingAudio(false);
 	}
@@ -179,6 +181,12 @@ public class AudioCapture extends JPanel implements ActionListener {
 	@Override
 	public void actionPerformed(ActionEvent e) {
 
+		if ( cancelNextInvocation ) {
+			cancel();
+			repaint();
+			return;
+		}
+		
 		long now = System.currentTimeMillis();
 		
 		// determine if have we switched beats with this invocation
@@ -187,9 +195,11 @@ public class AudioCapture extends JPanel implements ActionListener {
 			
 			// increment count and check if we're done
 			if ( ++currentBeat > 8 ) {
-				timer.stop();
+				// we need to allow a frames worth of audio to trail into the file
+				// to balance out any potential latency encountered when we triggered
+				// the recording to start
+				cancelNextInvocation = true;
 				repaint();
-				setCapturingAudio(false);
 				return;
 			}
 		}
@@ -210,6 +220,11 @@ public class AudioCapture extends JPanel implements ActionListener {
 			renderCountdownImage(currentFrame, currentBeat, progress);
 		} else {
 			// recording audio 
+			if ( !recordingThread.isAlive() ) {
+				targetDataLine.flush();
+				recordingThread.start();
+			}
+			
 			renderPromptImage(currentFrame, prompts[currentBeat-5], progress);
 		}
 		
