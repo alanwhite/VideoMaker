@@ -163,7 +163,6 @@ public class VideoMaker extends JFrame implements PropertyChangeListener {
 				break;
 			default:
 				System.out.println(getTime()+" Warning: Unhandled property "+propertyName+" ignored");
-
 			}
 		}
 

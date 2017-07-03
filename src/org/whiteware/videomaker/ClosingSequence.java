@@ -26,7 +26,7 @@ public class ClosingSequence extends FrameMaker {
 
 			Graphics2D g2D = (Graphics2D) image.getGraphics();
 			g2D.setColor(Color.GRAY);
-			// g2D.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+			// experiments ...
 			g2D.setRenderingHint(RenderingHints.KEY_ALPHA_INTERPOLATION, RenderingHints.VALUE_ALPHA_INTERPOLATION_QUALITY);
 			g2D.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
 

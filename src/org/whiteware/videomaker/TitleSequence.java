@@ -26,7 +26,7 @@ public class TitleSequence extends FrameMaker {
 	}
 
 	private BufferedImage getImage() {
-		// very simply just rendering the same screen for now until time permits to jazz up
+		// rendering the title string in the middle and a frame counter
 
 		BufferedImage image = super.getPriorImage();
 		Font font = new Font("Monospaced", Font.BOLD, 16);

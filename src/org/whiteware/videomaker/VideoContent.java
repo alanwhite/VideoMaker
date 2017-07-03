@@ -16,11 +16,9 @@ public class VideoContent extends FrameMaker {
 		// very simply just rendering the same screen for now until time permits to jazz up
 		
 		BufferedImage image = super.getPriorImage();
-		// Font font = new Font("Monospaced", Font.BOLD, 16);
 		
 		Graphics2D g2D = (Graphics2D) image.getGraphics();
 		g2D.setColor(Color.BLUE.darker());
-		g2D.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 		
 		g2D.fillRect(0, 0, image.getWidth(), image.getHeight());
 		g2D.dispose();

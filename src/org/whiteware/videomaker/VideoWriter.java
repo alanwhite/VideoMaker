@@ -41,7 +41,7 @@ public class VideoWriter extends SwingWorker<String, String> {
 	protected String doInBackground() throws Exception {
 
 		/*
-		 * We separate out the video frame content producers to seperate classes for clarity
+		 * We separate out the video frame content producers to separate classes for clarity
 		 */
 		final TitleSequence titleSequence = new TitleSequence(fps, title);
 		final VideoContent videoContent = new VideoContent(fps);
@@ -54,8 +54,6 @@ public class VideoWriter extends SwingWorker<String, String> {
 		final int videoFrames = videoContent.getFrameCount();
 		final int closingFrames = closingSequence.getFrameCount();
 		final int totalFrames = titleFrames + videoFrames + closingFrames;
-		final long totalMovieMillis = 1000 * (totalFrames/fps);
-		// final long frameTimeMillis = 1000/fps;
 		
 		/*
 		 * Track how many frames we've produced
@@ -113,19 +111,7 @@ public class VideoWriter extends SwingWorker<String, String> {
 		 * Set up access to the audio track to merge to the content phase only
 		 */
 		if ( audioFile != null ) {
-			/*
-			 * Now the strategy is that we ask the frame makers to produce the next frame due
-			 * If we can find some way to pull the audio on a frame by frame basis then a high quality video can be produced, 
-			 * ie less risk of varying the frame rate or skipping frames.
-			 * 
-			 * If we can't do that for the audio stream, we need to adopt a strategy where we are led by the audio timestamp.
-			 * 
-			 * Let's investigate how audio is captured by JavaCV.
-			 * recordSamples ... let's see if we can feed it the right number of samples with each video frame
-			 * we would read the requisite number from the audio file.
-			 * 
-			 */
-				
+
 			try {
 				audioInputStream = AudioSystem.getAudioInputStream(audioFile);
 				AudioFormat	audioFormat = audioInputStream.getFormat();
@@ -138,8 +124,6 @@ public class VideoWriter extends SwingWorker<String, String> {
 				return "ERROR: Unable to start audio feed"+e.getMessage();
 			} 
 			
-			// set up a frame of silence that gets added to the mp4 during titles etc
-			// should be zero .....
 		}
 		
 		while ( framesProcessed++ < totalFrames ) {
@@ -190,10 +174,8 @@ public class VideoWriter extends SwingWorker<String, String> {
 			 * Work out if we need to switch video frame producer
 			 */
 			if ( framesProcessed >= (videoFrames+titleFrames) ) {
-				// System.out.println("Switching to closing sequence");
 				currentFM = closingSequence;
 			} else if ( framesProcessed >= titleFrames ) {
-				// System.out.println("Switching to video content");
 				currentFM = videoContent;
 			}
 			
@@ -210,8 +192,8 @@ public class VideoWriter extends SwingWorker<String, String> {
 				line.close();
 			}
 		} catch (Exception e) {
-			System.out.println("error stopping all lines");
 			e.printStackTrace();
+			return "WARNING: exception closing lines "+e.getMessage();
 		}
 		
 		if ( !isCancelled() )

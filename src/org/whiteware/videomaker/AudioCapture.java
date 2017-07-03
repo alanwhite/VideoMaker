@@ -51,7 +51,7 @@ public class AudioCapture extends JPanel implements ActionListener {
 	private long millisPerBeat = 0;
 	private Timer timer = null;
 	
-	private BufferedImage geekText = null;
+	private BufferedImage instructionText = null;
 	private BufferedImage currentFrame = null;
 	
 	private String[] prompts = { "One", "Two", "Three", "Four" };
@@ -91,7 +91,6 @@ public class AudioCapture extends JPanel implements ActionListener {
 		
 		targetType = AudioFileFormat.Type.WAVE;
 		audioInputStream = new AudioInputStream(targetDataLine);
-		
 
 	}
 
@@ -105,10 +104,10 @@ public class AudioCapture extends JPanel implements ActionListener {
 			super.componentResized(e);
 			
 			// rebuild geekText
-			geekText = e.getComponent().getGraphicsConfiguration().createCompatibleImage(e.getComponent().getWidth(), e.getComponent().getHeight());			
+			instructionText = e.getComponent().getGraphicsConfiguration().createCompatibleImage(e.getComponent().getWidth(), e.getComponent().getHeight());			
 			Font font = new Font("Monospaced", Font.PLAIN, 14);
 			
-			Graphics2D g2D = (Graphics2D) geekText.getGraphics();
+			Graphics2D g2D = (Graphics2D) instructionText.getGraphics();
 			g2D.setColor(Color.GREEN);
 			g2D.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 			
@@ -117,10 +116,10 @@ public class AudioCapture extends JPanel implements ActionListener {
 			Rectangle2D textBounds = textual.getBounds();
 			
 			// position text in the middle of the available width
-			float x = ((float)geekText.getWidth()/2.0f) - (float)textBounds.getX() - ((float)textBounds.getWidth()/2.0f);
+			float x = ((float)instructionText.getWidth()/2.0f) - (float)textBounds.getX() - ((float)textBounds.getWidth()/2.0f);
 			
 			// position baseline text 1/3 of the way down the available height
-			float y = ((float)geekText.getHeight()/3.0f);
+			float y = ((float)instructionText.getHeight()/3.0f);
 			
 			textual.draw(g2D, x, y);
 			g2D.dispose();
@@ -140,6 +139,7 @@ public class AudioCapture extends JPanel implements ActionListener {
 		// use a new file each run
 		try {
 			setRecordingFile(File.createTempFile("AC-", "-audio"));
+			getRecordingFile().deleteOnExit();
 		} catch (IOException e1) {
 			e1.printStackTrace();
 			return;
@@ -275,7 +275,7 @@ public class AudioCapture extends JPanel implements ActionListener {
 		if ( timer.isRunning() ) {
 			g2D.drawImage(currentFrame, 0, 0, null);
 		} else {
-			g2D.drawImage(geekText, 0, 0, null);
+			g2D.drawImage(instructionText, 0, 0, null);
 		}
 	}
 	
