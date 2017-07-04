@@ -10,5 +10,14 @@
 	<classpathentry kind="lib" path="lib/javacpp.jar"/>
 	<classpathentry kind="lib" path="lib/javacv-platform.jar"/>
 	<classpathentry kind="lib" path="lib/javacv.jar"/>
+	<classpathentry kind="lib" path="lib/opencv-macosx-x86_64.jar"/>
+	<classpathentry kind="lib" path="lib/opencv-platform.jar"/>
+	<classpathentry kind="lib" path="lib/opencv-windows-x86_64.jar"/>
+	<classpathentry kind="lib" path="lib/opencv-windows-x86.jar"/>
+	<classpathentry kind="lib" path="lib/opencv.jar"/>
+	<classpathentry kind="lib" path="lib/videoinput-platform.jar"/>
+	<classpathentry kind="lib" path="lib/videoinput-windows-x86_64.jar"/>
+	<classpathentry kind="lib" path="lib/videoinput-windows-x86.jar"/>
+	<classpathentry kind="lib" path="lib/videoinput.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

@@ -35,6 +35,9 @@ public class VideoMaker extends JFrame implements PropertyChangeListener {
 	private DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
 
 	public VideoMaker() {
+		
+		new DeviceChoices();
+		
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		controlPanel.getPanelCue().setPreferredSize(new Dimension(640,480));
 		controlPanel.getPanelCue().add(audioCapture, BorderLayout.CENTER);
