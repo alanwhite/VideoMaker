@@ -1,70 +1,64 @@
 package xyz.arwhite.cams;
 
-import org.bytedeco.javacpp.avdevice.AVDeviceInfo;
-import org.bytedeco.javacpp.avdevice.AVDeviceInfoList;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.PrintStream;
+
+import org.bytedeco.ffmpeg.avformat.AVInputFormat;
+import org.bytedeco.ffmpeg.avutil.LogCallback;
+import org.bytedeco.ffmpeg.global.avdevice;
+import org.bytedeco.javacpp.BytePointer;
+import org.bytedeco.javacv.FFmpegFrameGrabber;
+import static org.bytedeco.ffmpeg.global.avutil.*;
 
 public class Cameras {
 
-	public Cameras() {
-		// TODO Auto-generated constructor stub
+	static class CamLogCallback extends LogCallback {
+		static final CamLogCallback instance = new CamLogCallback().retainReference();
+		public static CamLogCallback getInstance() { return instance; }
+		public static void set() { setLogCallback(getInstance()); }
+		@Override public void call(int level, BytePointer msg) {
+			System.err.println("CAPTURED: "+msg.getString());
+		}
 	}
 
 	public static void main(String[] args) {
-		System.out.println("hello world");
+		var origErr = System.err;
+		avdevice.avdevice_register_all();
+		CamLogCallback.set();
 
-		AVDeviceInfoList avlist = new AVDeviceInfoList(5);
-		
-		int n = 0;
-		n = avlist.nb_devices();
-		System.out.println("number of devices == "+n);
-		
-		for (int i = 0; i < n; i++) {
-		   AVDeviceInfo info = avlist.devices(i);
+		File tmp = null; 
+		AVInputFormat inp = null;	
+		while ( (inp = avdevice.av_input_video_device_next(inp)) != null ) {
+			try  {
+				tmp = File.createTempFile(Long.toString(System.currentTimeMillis()), null);
+				System.setErr(new PrintStream(tmp));
 
-		   System.out.println(info.device_name());
-		   System.out.println(info.device_description());
-		   
+				FFmpegFrameGrabber lister = new FFmpegFrameGrabber(""); 
+				lister.setFormat(inp.name().getString()); 
+				lister.setOption("list_devices", "true"); 
+				lister.start(); 
+			} catch(Exception e) {};
+
+			System.setErr(origErr);
+			printFile(tmp);
+			inp.close();
 		}
-		
-		avlist.close();
-		
-		
-//	       avdevice.AVDeviceInfoList devInfoList = new avdevice.AVDeviceInfoList();
-//	        avformat.AVFormatContext context = avformat.avformat_alloc_context();
-//	        avdevice.avdevice_list_devices(context, devInfoList);
-//	        System.out.println("devInfoList = ");
-//	        avformat.avformat_free_context(context);
-		
-//		FFmpegFrameGrabber lister = new FFmpegFrameGrabber("dummy"); 
-//		lister.setFormat("dshow"); 
-//		lister.setOption("list_devices", "true"); 
-//		try { 
-//		lister.start(); 
-//		} catch (Exception e) { 
-//		// cannot open "dummy": ignore exception 
-//		} 
-//		
-//		try {
-//			Thread.sleep(8000);
-//		} catch (InterruptedException e) {
-//			// TODO Auto-generated catch block
-//			e.printStackTrace();
-//		}
-		
-//		AVOutputFormat avf = new AVOutputFormat();
-//		AVOutputFormat.Get_device_list_AVFormatContext_AVDeviceInfoList l = avf.get_device_list();
-//		
-//		System.out.println(l);
-		
-//		int n = videoInput.listDevices();
-//		
-//		System.out.println("num device "+n);
-//
-//		for (int i = 0; i < n; i++) {
-//		   String info = videoInput.getDeviceName(i).getString();
-//
-//		   System.out.println(info);
-//		}
 	}
 
-}
+	private static void printFile(File file) {
+		BufferedReader br;
+		try {
+			br = new BufferedReader(new FileReader(file));
+
+			String line;
+			while ((line = br.readLine()) != null) {
+				System.out.println("STDERR: "+line);
+			}
+		} catch (Exception e) {}
+	}
+}	
+
+
+
